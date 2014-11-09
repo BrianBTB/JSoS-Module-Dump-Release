@@ -1,4 +1,9 @@
 Connect vita to server, dumps happen automatically
+files are stored as modname.seg#.bin 
+segments are code,rodata, and two metadata sections sometimes
+
+
+
 
 collaboration between Major_Tom and myself. 
 
