@@ -24,6 +24,8 @@ Thanks to Yifan for the uvloader source code on which alot of this was based
  
  Two JS wrappers added in functions.js to handle the SCE functions mentioned above
  
+ Automatic dump handler combining all changes in sploit.js
+ 
  
 
 
