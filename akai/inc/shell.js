@@ -66,7 +66,7 @@ function do_dump(aspace, addr, len, fname){
             var xaddr = addr;
             while(n > 0x1000){
                 logdbg("Dumping "+fname+" Remaining: 0x" + n.toString(16) + "\033[1A\r");
-                var bytes = get_bytes(aspace, xaddr, 30000);
+                var bytes = get_bytes(aspace, xaddr, 0x1000);
                 sendcmsg("dump", xaddr, bytes, fname);
                 n -= 0x1000;
                 xaddr += 0x1000;
