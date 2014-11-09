@@ -19,7 +19,9 @@ Thanks to Yifan for the uvloader source code on which alot of this was based
 ----Some Details about changes----
 
  A few SCE functions have been resolved and added to this, not present in the original API.
- Minor changes to dump code to add progress indicator
+ 
+ Minor changes to dump code to add progress indicator.
+ 
  Two JS wrappers added in functions.js to handle the SCE functions mentioned above
  
  
