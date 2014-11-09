@@ -1,0 +1,1 @@
+Connect vita to server, dumps happen automatically
