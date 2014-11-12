@@ -52,6 +52,36 @@ function socket_send(ip, port, msg){
     logdbg("-> 0x" + sent.toString(16) + "\n"); 
 }
 
+//SceDriverUser base + 0x3739
+//ConvertVs0UserDrivePath
+//sceAppMgrConvertVs0UserDrivePath
+function sceAppMgrConvertVs0UserDrivePath_caller(caller){
+    return function(path){
+        MOUNT_PATH_LENGTH = 0x100;
+        VS_PATH_LENGTH = path.length;
+        var path_a = allocate_memory(VS_PATH_LENGTH);
+        var mount_a = allocate_memory(MOUNT_PATH_LENGTH);
+        mymemcpy(path_a,path,VS_PATH_LENGTH);
+        var return_code = caller(path_a,mount_a,MOUNT_PATH_LENGTH);
+        logdbg("DEBUG: return code: 0x"+return_code.toString(16));
+        do_read(aspace,mount_a,MOUNT_PATH_LENGTH);
+        do_read(aspace,path_a,VS_PATH_LENGTH);
+
+        var mount = "broken (fixme)";
+        return [return_code,mount];
+    }
+
+}
+
+
+//thanks @nas_plugi
+function sceSysmoduleLoadModule_caller(caller){
+    return function (mod_id) {
+        var return_code = caller(mod_id);
+        return return_code;
+    }
+}
+
 function sceKernelGetModuleInfo_caller(caller){
     return function (UID) {
         var SIZE_OF_MODINFO = 440;
@@ -61,6 +91,26 @@ function sceKernelGetModuleInfo_caller(caller){
         return result
     }
 }
+//sceKernelLoadStartModule = sceLibKernel base + 0x99D1
+
+
+function sceKernelLoadModule_caller(caller){
+    return function (path) {
+        var MAX_LOADED_MODS = 128;
+        var num_loaded = MAX_LOADED_MODS;
+        var modlist_a = allocate_memory(MAX_LOADED_MODS*4);
+        var num_loaded_a = allocate_memory(0x4);
+        aspace32[num_loaded_a/4] = num_loaded;
+
+        var return_code = caller(0xFF,modlist_a,num_loaded_a);
+        var result = [return_code,modlist_a,num_loaded_a];
+
+
+        return result
+    }
+
+}
+
 
 function sceKernelGetModuleList_caller(caller){
     return function () {
@@ -78,6 +128,7 @@ function sceKernelGetModuleList_caller(caller){
     }
 
 }
+
 /*
     List Directory
 */
